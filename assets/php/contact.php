@@ -61,23 +61,96 @@ try {
 
     $service = new Google\Service\Gmail($client);
 
-    // Build RFC 2822 MIME message
-    $org_line = empty($organizacion) ? 'No indicada' : $organizacion;
-    $body_text  = "Has recibido un nuevo mensaje desde el formulario de contacto de koqoi.com\n\n";
-    $body_text .= "Nombre:        {$nombre}\n";
-    $body_text .= "Email:         {$email}\n";
-    $body_text .= "Organización:  {$org_line}\n\n";
-    $body_text .= "Mensaje:\n{$mensaje}\n";
+    // Build RFC 2822 MIME message (multipart: HTML + plain text fallback)
+    $org_line = empty($organizacion) ? '<em>No indicada</em>' : htmlspecialchars($organizacion, ENT_QUOTES, 'UTF-8');
+    $nombre_h  = htmlspecialchars($nombre,  ENT_QUOTES, 'UTF-8');
+    $email_h   = htmlspecialchars($email,   ENT_QUOTES, 'UTF-8');
+    $mensaje_h = nl2br(htmlspecialchars($mensaje, ENT_QUOTES, 'UTF-8'));
+    $fecha     = date('d/m/Y H:i') . ' UTC';
 
-    $subject_encoded = '=?UTF-8?B?' . base64_encode('Nuevo mensaje de contacto - Koqoi') . '?=';
+    $html = <<<HTML
+<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Inter,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:32px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <!-- Header -->
+        <tr>
+          <td style="background:#0f0f0f;padding:24px 32px;text-align:center;">
+            <span style="font-size:22px;font-weight:800;color:#D4AF37;letter-spacing:0.05em;">KOQOI</span>
+            <p style="margin:4px 0 0;color:rgba(255,255,255,0.5);font-size:12px;letter-spacing:0.1em;text-transform:uppercase;">Nuevo mensaje de contacto</p>
+          </td>
+        </tr>
+        <!-- Body -->
+        <tr>
+          <td style="padding:32px;">
+            <p style="margin:0 0 24px;font-size:15px;color:#444;">Se ha recibido un nuevo mensaje a través del formulario de <strong>koqoi.com</strong>.</p>
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e8e8e8;border-radius:6px;overflow:hidden;">
+              <tr style="background:#fafafa;">
+                <td style="padding:12px 16px;font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.08em;width:140px;border-bottom:1px solid #e8e8e8;">Nombre</td>
+                <td style="padding:12px 16px;font-size:15px;color:#1a1a1a;font-weight:600;border-bottom:1px solid #e8e8e8;">{$nombre_h}</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 16px;font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid #e8e8e8;">Email</td>
+                <td style="padding:12px 16px;border-bottom:1px solid #e8e8e8;"><a href="mailto:{$email_h}" style="color:#D4AF37;font-size:15px;text-decoration:none;">{$email_h}</a></td>
+              </tr>
+              <tr style="background:#fafafa;">
+                <td style="padding:12px 16px;font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.08em;border-bottom:1px solid #e8e8e8;">Organización</td>
+                <td style="padding:12px 16px;font-size:15px;color:#1a1a1a;border-bottom:1px solid #e8e8e8;">{$org_line}</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 16px;font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.08em;vertical-align:top;">Mensaje</td>
+                <td style="padding:12px 16px;font-size:15px;color:#1a1a1a;line-height:1.7;">{$mensaje_h}</td>
+              </tr>
+            </table>
+            <p style="margin:24px 0 0;font-size:13px;color:#aaa;">Recibido el {$fecha} · Responde directamente a este correo para contactar al remitente.</p>
+          </td>
+        </tr>
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f9f9f9;border-top:1px solid #e8e8e8;padding:16px 32px;text-align:center;">
+            <p style="margin:0;font-size:12px;color:#bbb;">koqoi.com &mdash; Tecnología para organizaciones de salud</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+HTML;
+
+    $plain  = "Nuevo mensaje de contacto - koqoi.com\n";
+    $plain .= str_repeat('=', 40) . "\n";
+    $plain .= "Nombre:       {$nombre}\n";
+    $plain .= "Email:        {$email}\n";
+    $plain .= "Organización: " . (empty($organizacion) ? 'No indicada' : $organizacion) . "\n";
+    $plain .= "Fecha:        {$fecha}\n\n";
+    $plain .= "Mensaje:\n{$mensaje}\n";
+
+    $boundary = '----=_Part_' . md5(uniqid());
+    $subject_encoded = '=?UTF-8?B?' . base64_encode('🔔 Nuevo contacto en Koqoi: ' . $nombre) . '?=';
 
     $mime  = "To: {$config['to_name']} <{$config['to_email']}>\r\n";
     $mime .= "From: {$config['from_name']} <{$config['from_email']}>\r\n";
     $mime .= "Reply-To: {$nombre} <{$email}>\r\n";
     $mime .= "Subject: {$subject_encoded}\r\n";
+    $mime .= "X-Priority: 1\r\n";
+    $mime .= "X-MSMail-Priority: High\r\n";
+    $mime .= "Importance: High\r\n";
     $mime .= "MIME-Version: 1.0\r\n";
+    $mime .= "Content-Type: multipart/alternative; boundary=\"{$boundary}\"\r\n";
+    $mime .= "\r\n";
+    $mime .= "--{$boundary}\r\n";
     $mime .= "Content-Type: text/plain; charset=UTF-8\r\n";
-    $mime .= "Content-Transfer-Encoding: 8bit\r\n";
+    $mime .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+    $mime .= $plain . "\r\n";
+    $mime .= "--{$boundary}\r\n";
+    $mime .= "Content-Type: text/html; charset=UTF-8\r\n";
+    $mime .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+    $mime .= $html . "\r\n";
+    $mime .= "--{$boundary}--\r\n";
     $mime .= "\r\n";
     $mime .= $body_text;
 

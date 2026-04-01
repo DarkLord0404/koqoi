@@ -7,3 +7,6 @@ assets/php/config.php
 
 # Script de setup OAuth2 — eliminar del VPS después de usarlo
 assets/php/oauth-setup.php
+
+# Logs del monitor
+logs/
