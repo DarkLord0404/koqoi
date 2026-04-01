@@ -1,0 +1,12 @@
+# Bloquear acceso directo a todos los archivos PHP desde el navegador
+# Solo contact.php puede ser llamado via fetch desde el mismo dominio
+
+<FilesMatch "\.php$">
+    Order Deny,Allow
+    Deny from all
+</FilesMatch>
+
+<Files "contact.php">
+    Order Allow,Deny
+    Allow from all
+</Files>

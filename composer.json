@@ -1,0 +1,18 @@
+{
+    "name": "koqoi/website",
+    "description": "Koqoi website contact form backend",
+    "require": {
+        "google/apiclient": "^2.15"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "audit": {
+            "block-insecure": false
+        }
+    },
+    "audit": {
+        "ignore": {
+            "PKSA-y2cr-5h3j-g3ys": "firebase/php-jwt es una dependencia interna de google/apiclient usada exclusivamente para firmar tokens OAuth2 server-side. No se expone ningún JWT a clientes externos, por lo que la vulnerabilidad no aplica a este contexto."
+        }
+    }
+}

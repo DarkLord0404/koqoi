@@ -108,23 +108,82 @@ document.addEventListener('DOMContentLoaded', () => {
 // Contact Form
 // ========================================
 
+function showFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    const group = field.closest('.form-group');
+    group.classList.add('error');
+    const errorEl = document.createElement('p');
+    errorEl.className = 'field-error';
+    errorEl.textContent = message;
+    group.appendChild(errorEl);
+}
+
+function showFormAlert(form, message, type) {
+    const alert = document.createElement('div');
+    alert.className = 'form-alert form-alert--' + type;
+    alert.textContent = message;
+    const submitBtn = form.querySelector('[type="submit"]');
+    form.insertBefore(alert, submitBtn);
+}
+
 const contactForm = document.getElementById('contactForm');
 
 if (contactForm) {
-    contactForm.addEventListener('submit', (e) => {
+    contactForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const nombre = document.getElementById('nombre').value.trim();
-        const email = document.getElementById('email').value.trim();
+        // Clear previous feedback
+        contactForm.querySelectorAll('.form-alert').forEach(el => el.remove());
+        contactForm.querySelectorAll('.field-error').forEach(el => el.remove());
+        contactForm.querySelectorAll('.form-group.error').forEach(g => g.classList.remove('error'));
+
+        const nombre  = document.getElementById('nombre').value.trim();
+        const email   = document.getElementById('email').value.trim();
         const mensaje = document.getElementById('mensaje').value.trim();
 
-        if (!nombre || !email || !mensaje) {
-            alert('Por favor completa los campos requeridos.');
-            return;
+        // Client-side validation
+        let valid = true;
+        if (nombre.length < 2) {
+            showFieldError('nombre', 'Por favor ingresa tu nombre completo.');
+            valid = false;
         }
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            showFieldError('email', 'Por favor ingresa un correo electrónico válido.');
+            valid = false;
+        }
+        if (mensaje.length < 10) {
+            showFieldError('mensaje', 'Por favor describe tu reto o consulta (mínimo 10 caracteres).');
+            valid = false;
+        }
+        if (!valid) return;
 
-        // Placeholder for backend integration
-        alert('\u00a1Gracias por escribirnos, ' + nombre + '! Nos pondremos en contacto contigo pronto.');
-        contactForm.reset();
+        // Loading state
+        const submitBtn = contactForm.querySelector('[type="submit"]');
+        const originalText = submitBtn.textContent;
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Enviando...';
+
+        try {
+            const formData = new FormData(contactForm);
+            const response = await fetch('assets/php/contact.php', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showFormAlert(contactForm, data.message, 'success');
+                contactForm.reset();
+            } else {
+                showFormAlert(contactForm, data.message, 'error');
+            }
+        } catch {
+            showFormAlert(contactForm, 'Ocurrió un error de conexión. Por favor escríbenos directamente a info@koqoi.com', 'error');
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalText;
+        }
     });
 }

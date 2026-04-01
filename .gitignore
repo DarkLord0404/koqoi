@@ -1,0 +1,9 @@
+# Dependencias de Composer
+vendor/
+composer.lock
+
+# Configuración con credenciales (¡NUNCA subir al repo!)
+assets/php/config.php
+
+# Script de setup OAuth2 — eliminar del VPS después de usarlo
+assets/php/oauth-setup.php
